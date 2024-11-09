@@ -1,3 +1,20 @@
+module Router : sig
+  module URL : sig
+    type url = {
+      (* path takes window.location.path, like "/book/title/edit" and turns it into `["book", "title", "edit"]` *)
+      path : string list;
+      (* the url's hash, if any. The # symbol is stripped out for you *)
+      hash : string;
+      (* the url's query params, if any. The ? symbol is stripped out for you *)
+      search : string;
+    }
+
+    val url : url option ref
+    val set : url -> unit
+    val get : unit -> url option
+  end
+end
+
 val push : string -> unit
 (** update the url with the string path. Example: `push("/book/1")`, `push("/books#title")` *)
 
@@ -5,15 +22,7 @@ val replace : string -> unit
 (** update the url with the string path. modifies the current history entry instead of creating a new one. Example: `replace("/book/1")`, `replace("/books#title")` *)
 
 type watcherID
-
-type url = {
-  (* path takes window.location.path, like "/book/title/edit" and turns it into `["book", "title", "edit"]` *)
-  path : string list;
-  (* the url's hash, if any. The # symbol is stripped out for you *)
-  hash : string;
-  (* the url's query params, if any. The ? symbol is stripped out for you *)
-  search : string;
-}
+type url = Router.URL.url
 
 val watchUrl : (url -> unit) -> watcherID
 (** start watching for URL changes. Returns a subscription token. Upon url change, calls the callback and passes it the url record *)

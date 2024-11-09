@@ -1,1 +1,3 @@
-let () = Alcotest.run "React" [ Test_cloneElement.tests; Test_react.tests ]
+let () =
+  Alcotest.run "React"
+    [ Test_cloneElement.tests; Test_react.tests; Test_router.tests ]
