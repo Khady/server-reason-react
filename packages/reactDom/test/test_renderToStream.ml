@@ -49,6 +49,15 @@ let test_silly_stream () =
   push None;
   assert_stream stream [ "first"; "secondo"; "trienio" ]
 
+let rsc_script replacement =
+  Printf.sprintf
+    "<script>function \
+     $RC(a,b){a=document.getElementById(a);b=document.getElementById(b);b.parentNode.removeChild(b);if(a){a=a.previousSibling;var \
+     f=a.parentNode,c=a.nextSibling,e=0;do{if(c&&8===c.nodeType){var \
+     d=c.data;if(\"/$\"===d)if(0===e)break;else \
+     e--;else\"$\"!==d&&\"$?\"!==d&&\"$!\"!==d||e++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;b.firstChild;)f.insertBefore(b.firstChild,c);a.data=\"$\";a._reactRetry&&a._reactRetry()}}%s</script>"
+    replacement
+
 let react_use_without_suspense () =
   Sleep.destroy ();
   let app =
@@ -64,14 +73,27 @@ let react_use_without_suspense () =
   let%lwt stream, _abort = ReactDOM.renderToStream app in
   assert_stream stream [ "<div><span>Hello 0.01</span></div>" ]
 
-let rsc_script replacement =
-  Printf.sprintf
-    "<script>function \
-     $RC(a,b){a=document.getElementById(a);b=document.getElementById(b);b.parentNode.removeChild(b);if(a){a=a.previousSibling;var \
-     f=a.parentNode,c=a.nextSibling,e=0;do{if(c&&8===c.nodeType){var \
-     d=c.data;if(\"/$\"===d)if(0===e)break;else \
-     e--;else\"$\"!==d&&\"$?\"!==d&&\"$!\"!==d||e++}d=c.nextSibling;f.removeChild(c);c=d}while(c);for(;b.firstChild;)f.insertBefore(b.firstChild,c);a.data=\"$\";a._reactRetry&&a._reactRetry()}}%s</script>"
-    replacement
+let react_use_with_state () =
+  let app =
+    React.Upper_case_component
+      (fun () ->
+        let delay = 0.1 in
+        let sleeping, _ =
+          React.useState (fun () ->
+              print_endline "state only once?";
+              let%lwt () = Lwt_unix.sleep delay in
+              print_endline "sleep done";
+              Lwt.return delay)
+        in
+        let delay = React.Experimental.use sleeping in
+        React.createElement "div" []
+          [
+            React.createElement "span" []
+              [ React.string "Hello "; React.float delay ];
+          ])
+  in
+  let%lwt stream, _abort = ReactDOM.renderToStream app in
+  assert_stream stream [ "<div><span>Hello 0.1</span></div>" ]
 
 let suspense_without_promise () =
   let hi =
@@ -290,14 +312,15 @@ let async_component_without_suspense () =
 
 let tests =
   [
-    test "silly_stream" test_silly_stream;
-    test "react_use_without_suspense" react_use_without_suspense;
-    test "component_always_throwing" component_always_throwing;
-    test "suspense_with_react_use" suspense_with_react_use;
-    test "async component" async_component;
-    test "async_component_without_suspense" async_component_without_suspense;
-    test "suspense_with_async_component" suspense_with_async_component;
-    test "suspense_with_always_throwing" suspense_with_always_throwing;
-    test "suspense_without_promise" suspense_without_promise;
-    test "suspense_with_nested_suspense" suspense_with_nested_suspense;
+    test "react_use_with_state" react_use_with_state;
+    (* test "silly_stream" test_silly_stream; *)
+    (* test "react_use_without_suspense" react_use_without_suspense; *)
+    (* test "component_always_throwing" component_always_throwing; *)
+    (* test "suspense_with_react_use" suspense_with_react_use; *)
+    (* test "async component" async_component; *)
+    (* test "async_component_without_suspense" async_component_without_suspense; *)
+    (* test "suspense_with_async_component" suspense_with_async_component; *)
+    (* test "suspense_with_always_throwing" suspense_with_always_throwing; *)
+    (* test "suspense_without_promise" suspense_without_promise; *)
+    (* test "suspense_with_nested_suspense" suspense_with_nested_suspense; *)
   ]

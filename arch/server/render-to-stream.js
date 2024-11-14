@@ -16,13 +16,14 @@ const debug = (readableStream) => {
 	const reader = readableStream.getReader();
 	const debugReader = ({ done, value }) => {
 		if (done) {
-			console.log("Stream complete");
+			console.log("Stream complete\n");
 			return;
 		}
 		console.log(decoder.decode(value));
 		console.log(" ");
 		return reader.read().then(debugReader);
 	};
+	console.log("");
 	reader.read().then(debugReader);
 };
 
@@ -37,7 +38,7 @@ const debug = (readableStream) => {
 const sleep = (seconds) =>
 	new Promise((res) => setTimeout(res, seconds * 1000));
 
-const App = () => (
+/* const App = () => (
 	<React.Suspense fallback="Fallback 1">
 		<DefferedComponent sleep={1}>
 			<React.Suspense fallback="Fallback 2">
@@ -45,7 +46,13 @@ const App = () => (
 			</React.Suspense>
 		</DefferedComponent>
 	</React.Suspense>
-);
+); */
+
+const App = () => {
+	const [sleeping, _setSleeping] = React.useState(() => sleep(10));
+	const _ = React.use(sleeping);
+	return "HI";
+};
 
 ReactDOM.renderToReadableStream(<App />).then((stream) => {
 	debug(stream);

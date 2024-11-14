@@ -565,12 +565,183 @@ end
 
 let useContext context = context.current_value.current
 
+(* let useState (make_initial_value : unit -> 'state) =
+   let initial_value : 'state = make_initial_value () in
+   let setState (_fn : 'state -> 'state) = () in
+   (initial_value, setState) *)
+
+module State = struct
+  module HeterogenousList = struct
+    module type Witness = sig
+      type 'a t
+    end
+
+    module type S = sig
+      type 'a witness
+      type 'a valueContainer = { value : 'a; toWitness : 'a -> 'a witness }
+      type nil = Nil
+
+      type 'list t =
+        | [] : nil t
+        | ( :: ) : 'a valueContainer * 'l t -> ('a -> 'l) t
+
+      type 'a constructor = private 'tail t -> 'after t
+        constraint 'a = 'tail * 'after
+
+      type 'value init = ('value * 'value) constructor
+
+      val init : 'value init
+
+      val append :
+        'value valueContainer ->
+        (('value -> 'b) * 'c) constructor ->
+        ('b * 'c) constructor
+
+      val seal : (nil * 'a) constructor -> 'a t
+      val dropFirst : ('a -> 'b) t -> 'a valueContainer * 'b t
+
+      type opaqueValue = Any : 'a witness -> opaqueValue
+
+      val iter : (opaqueValue -> unit) -> 'a t -> unit
+      val fold : ('acc -> opaqueValue -> 'acc) -> 'acc -> 'a t -> 'acc
+
+      type mapper = { f : 'a. 'a witness -> 'a option }
+
+      val map : mapper -> 'a t -> 'a t
+      val compareElementsIdentity : 'a t -> 'a t -> bool
+    end
+
+    module Make (Witness : Witness) : S with type 'a witness = 'a Witness.t =
+    struct
+      type 'a witness = 'a Witness.t
+      type 'a valueContainer = { value : 'a; toWitness : 'a -> 'a witness }
+      type nil = Nil
+
+      type 'list t =
+        | [] : nil t
+        | ( :: ) : 'a valueContainer * 'l t -> ('a -> 'l) t
+
+      type 'a constructor = 'tail t -> 'after t constraint 'a = 'tail * 'after
+      type 'value init = ('value * 'value) constructor
+
+      let init = (fun a -> a : 'value init)
+      let append value x : 'a constructor = fun hole -> x (value :: hole)
+      let seal = (fun x -> x [] : (nil * 'a) constructor -> 'a t)
+
+      let dropFirst : type a b. (a -> b) t -> a valueContainer * b t = function
+        | a :: q -> (a, q)
+
+      type opaqueValue = Any : 'a witness -> opaqueValue
+
+      let rec iter : type a. (opaqueValue -> unit) -> a t -> unit =
+       fun f l ->
+        match l with
+        | [] -> ()
+        | { value; toWitness } :: t ->
+            f (Any (toWitness value) [@explicit_arity]);
+            iter f t
+
+      let rec fold :
+          type a acc. (acc -> opaqueValue -> acc) -> acc -> a t -> acc =
+       fun f acc l ->
+        match l with
+        | [] -> acc
+        | { value; toWitness } :: t ->
+            fold f (f acc (Any (toWitness value) [@explicit_arity])) t
+
+      type mapper = { f : 'a. 'a witness -> 'a option }
+
+      let rec map : type a. mapper -> a t -> a t =
+       fun mapper l ->
+        match l with
+        | [] -> l
+        | { value; toWitness } :: t ->
+            let mapped = mapper.f (toWitness value) in
+            {
+              value =
+                (match mapped with
+                | ((Some x) [@explicit_arity]) -> x
+                | None -> value);
+              toWitness;
+            }
+            :: map mapper t
+
+      let rec compareElementsIdentity : type a. a t -> a t -> bool =
+       fun l1 l2 ->
+        match (l1, l2) with
+        | [], [] -> true
+        | { value; _ } :: t1, { value = value2; _ } :: t2 ->
+            value == value2 && compareElementsIdentity t1 t2
+    end
+  end
+
+  type 'a hook = ..
+
+  module StateHeterogenousList = HeterogenousList.Make (struct
+    type 'a t = 'a hook
+  end)
+
+  type ('remaining, 'processed) t = {
+    remaining : 'remaining StateHeterogenousList.t option;
+    processed : ('remaining * 'processed) StateHeterogenousList.constructor;
+    onStateDidChange : unit -> unit;
+  }
+
+  let ofState remaining ~onStateDidChange =
+    { remaining; processed = StateHeterogenousList.init; onStateDidChange }
+
+  type nil = StateHeterogenousList.nil
+  type empty = nil StateHeterogenousList.t
+  type 'a all = (nil, 'a) t
+
+  let toState { processed; _ } = StateHeterogenousList.seal processed
+
+  let empty =
+    (fun () ->
+       {
+         remaining = None;
+         processed = StateHeterogenousList.init;
+         onStateDidChange = (fun () -> ());
+       }
+      : unit -> _ t)
+
+  let printState = function Some _ -> "<Some>" | None -> "<Empty>"
+
+  type 'a state = { currentValue : 'a; mutable nextValue : 'a }
+  type 'a hook += State : 'a state -> 'a state hook
+
+  let make =
+    (fun initialValue ->
+       { currentValue = initialValue; nextValue = initialValue }
+      : 'a -> 'a state)
+
+  let wrapAsHook s = (State s [@explicit_arity])
+  let setState nextValue stateContainer = stateContainer.nextValue <- nextValue
+
+  let flush { currentValue; nextValue } =
+    if currentValue == nextValue then None
+    else Some { currentValue = nextValue; nextValue } [@explicit_arity]
+
+  let hook initialState =
+    let initialState = make initialState in
+    let _ = StateHeterogenousList.init initialState in
+    let setter _updater = () in
+    (stateContainer.currentValue, setter)
+end [@warning "-32-34"]
+
 let useState (make_initial_value : unit -> 'state) =
-  let initial_value : 'state = make_initial_value () in
-  let setState (fn : 'state -> 'state) =
-    let _ = fn initial_value in
-    ()
+  let _ = State.hook make_initial_value in
+  let cache = ref None in
+  let get_initial_value () =
+    match !cache with
+    | Some value -> value
+    | None ->
+        let value = make_initial_value () in
+        cache := Some value;
+        value
   in
+  let initial_value = get_initial_value () in
+  let setState (_fn : 'state -> 'state) = () in
   (initial_value, setState)
 
 type ('input, 'output) callback = 'input -> 'output
