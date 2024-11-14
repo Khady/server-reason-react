@@ -55,6 +55,74 @@ let react_use_without_suspense () =
   let%lwt stream, _abort = ReactDOM.renderToStream app in
   assert_stream stream [ "<div><span>Hello 0.01</span></div>" ]
 
+(* This is a test where we should ensure useState is cached, passed into use as always the same promise and await the result *)
+(* let react_use_without_cache_and_use_state () =
+   let app =
+     React.Upper_case_component
+       (fun () ->
+         let sleeping, _ =
+           React.useState (fun () ->
+               let%lwt () = Lwt_unix.sleep 0.1 in
+               Lwt.return ())
+         in
+         let _ = React.Experimental.use sleeping in
+         React.createElement "div" [] [ React.createElement "span" [] [ React.string "Hello after a sleep!" ] ])
+   in
+   let%lwt stream, _abort = ReactDOM.renderToStream app in
+   assert_stream stream [ "<div><span>Hello after a sleep!</span></div>" ] *)
+(* Some implementations attemps to make useState *)
+(* module type STATE = sig
+     type t
+
+     val get : unit -> t
+     val initial : unit -> t
+   end
+
+   type hook_store = State : (module STATE with type t = 'a) -> hook_store
+
+   let current_hooks = ref []
+   let current_index = ref 0
+
+   let useState (type state) (init : unit -> state) : state * (state -> unit) =
+     let idx = !current_index in
+     incr current_index;
+
+     let setState _new_value = () in
+     if idx >= List.length !current_hooks then (
+       let value = ref (init ()) in
+       let module M = struct
+         type t = state
+
+         let get () = !value
+         let initial = init
+       end in
+       current_hooks := !current_hooks @ [ State (module M) ];
+       (!value, setState))
+     else
+       match List.nth !current_hooks idx with
+       | State m ->
+           let module M = (val m : STATE with type t = state) in
+           (Obj.magic (), setState) *)
+
+(* type hook_value = Hook : { mutable value : 'a; init : unit -> 'a } -> hook_value
+
+   let current_hooks = ref []
+   let current_index = ref 0
+
+   let useState (type state) (init : unit -> state) : state * ((state -> state) -> unit) =
+     let idx = !current_index in
+     incr current_index;
+
+     let setState _new_value = () in
+     if idx >= List.length !current_hooks then (
+       let hook = Hook { value = init (); init } in
+       current_hooks := !current_hooks @ [ hook ];
+       let (Hook h) = hook in
+       (Obj.magic h.value, setState))
+     else
+       let (Hook h) = List.nth !current_hooks idx in
+       (Obj.magic h.value, setState) *)
+
 let rsc_script replacement =
   Printf.sprintf
     "<script>function \
@@ -207,6 +275,7 @@ let tests =
   [
     test "silly_stream" test_silly_stream;
     test "react_use_without_suspense" react_use_without_suspense;
+    (* test "react_use_without_cache_and_use_state" react_use_without_cache_and_use_state; *)
     test "component_always_throwing" component_always_throwing;
     test "suspense_with_react_use" suspense_with_react_use;
     test "async component" async_component;

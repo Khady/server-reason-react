@@ -528,10 +528,7 @@ let useContext context = context.current_value.current
 
 let useState (make_initial_value : unit -> 'state) =
   let initial_value : 'state = make_initial_value () in
-  let setState (fn : 'state -> 'state) =
-    let _ = fn initial_value in
-    ()
-  in
+  let setState (_fn : 'state -> 'state) = () in
   (initial_value, setState)
 
 type ('input, 'output) callback = 'input -> 'output
