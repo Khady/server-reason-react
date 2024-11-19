@@ -525,11 +525,28 @@ end
    let memoCustomCompareProps f _compare : 'props * 'props -> bool = f *)
 
 let useContext context = context.current_value.current
-let hook_list = ref []
 
-let useState (fn : unit -> 'state) =
-  let initial_value = fn () in
-  let setState _fn = () in
+type storage = ..
+
+let storage : (Obj.t * storage) list Stdlib.ref = Stdlib.ref []
+
+let useStateCache : type state. (unit -> state) -> state * ((state -> state) -> unit) =
+ fun fn ->
+  let setState (_fn : state -> state) = () in
+  let module S = struct
+    type storage += A of state
+  end in
+  match List.assoc_opt (Obj.repr fn) !storage with
+  | None ->
+      let v = fn () in
+      storage := (Obj.repr v, S.A v) :: !storage;
+      (v, setState)
+  | Some (S.A state) -> (state, setState)
+  | Some _ -> failwith "type error"
+
+let useState (make_initial_value : unit -> 'state) =
+  let initial_value = make_initial_value () in
+  let setState (_fn : 'state -> 'state) = () in
   (initial_value, setState)
 
 (* module State = struct

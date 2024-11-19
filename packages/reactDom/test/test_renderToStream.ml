@@ -69,7 +69,7 @@ let react_use_with_state () =
       (fun () ->
         let delay = 0.1 in
         let sleeping, _ =
-          React.useState (fun () ->
+          React.useStateCache (fun () ->
               print_endline "state only once?";
               let%lwt () = Lwt_unix.sleep delay in
               print_endline "sleep done";

@@ -612,6 +612,7 @@ exception Suspend of any_promise
 (* val memo : ('props * 'props -> bool) -> 'a -> 'props * 'props -> bool *)
 val useContext : 'a Context.t -> 'a
 val useState : (unit -> 'state) -> 'state * (('state -> 'state) -> unit)
+val useStateCache : (unit -> 'state) -> 'state * (('state -> 'state) -> unit)
 val useMemo : (unit -> 'a) -> 'a
 val useMemo0 : (unit -> 'a) -> 'a
 val useMemo1 : (unit -> 'a) -> 'b -> 'a
