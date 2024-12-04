@@ -27,9 +27,9 @@ We need to output ML syntax here, otherwise refmt could not parse it.
   
   module Onclick_handler_button = struct
     let make ?key:(_ : string option) ~name ?isDisabled () =
-      let onClick event = Js.log event in
       React.Upper_case_component
         (fun () ->
+          let onClick event = Js.log event in
           React.createElement "button"
             (Stdlib.List.filter_map Fun.id
                [

@@ -452,6 +452,10 @@ let rec transform_function_with_warning expression =
 let transofrm_last_expression expr fn =
   let rec inner expr =
     match expr.pexp_desc with
+    | Pexp_fun
+        (label, def, ([%pat? ()] as patt), ({ pexp_desc = Pexp_apply _ | Pexp_sequence _ | Pexp_let _ } as expression))
+      ->
+        pexp_fun ~loc:expr.pexp_loc label def patt (fn expression)
     | Pexp_sequence (expr, sequence) -> pexp_sequence ~loc:expr.pexp_loc expr (inner sequence)
     | Pexp_let (flag, patt, expression) -> pexp_let ~loc:expr.pexp_loc flag patt (inner expression)
     | Pexp_fun (label, def, patt, expression) -> pexp_fun ~loc:expr.pexp_loc label def patt (inner expression)

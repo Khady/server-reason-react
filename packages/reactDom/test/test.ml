@@ -8,4 +8,5 @@ let () =
             Test_renderToString.tests;
             Test_reactDOMStyle.tests;
             Test_ReactServerDOM.tests;
+            Test_context.tests;
           ]))
